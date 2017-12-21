@@ -1,3 +1,4 @@
+/*
 void screenInit(){
   tft.begin();
   tft.fillScreen(ILI9340_BLACK);
@@ -11,7 +12,7 @@ void screenInit(){
   //testText();
 }
 
-void blankScreen(){  
+void blankScreen(){
   tft.fillRect(0, 0, 100, 50, ILI9340_BLACK);
   tft.setCursor(0, 0);
   tft.setTextSize(5);
@@ -258,3 +259,4 @@ unsigned long testFilledRoundRects() {
 
   return micros() - start;
 }
+*/

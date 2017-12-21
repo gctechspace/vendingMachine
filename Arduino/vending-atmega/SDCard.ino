@@ -1,3 +1,4 @@
+/*
 void initSDCard(){
   pinMode(4, OUTPUT);  // <<Can be changed
   if(!SD.begin(SDCard_CS)) {
@@ -23,10 +24,11 @@ void lineData(byte line){
     for(byte i = 0; i < 20; i++){
       Serial.write(myFile.read());
     }
-    
+
     myFile.close();
   } else {
   	// if the file didn't open, print an error:
     Serial.println("error opening test.txt");
   }
 }
+*/

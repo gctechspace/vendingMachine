@@ -1,8 +1,9 @@
+/*
 #define selectTimeout 5000
 
 void initKeypad(){
   ADCSRA = 0;  //Disable ADC
-  
+
   //We power ON ONLY coloum 1
   pinMode(KP_Col1, OUTPUT);
   pinMode(KP_Col2, OUTPUT);
@@ -21,7 +22,7 @@ void keyPressed(){
   byte colShift = 0;
   char row;
   byte col;
-  
+
   key = manualKeyRead();
   if(key) {  //If we got a key Press
     blankScreen();  //****** TEMP Clear screen
@@ -30,8 +31,8 @@ void keyPressed(){
     row = 'A' + key;
     tft.print(row);
     Serial.print(row);
-    
-    rowShift = 1 << key;  //Shift 
+
+    rowShift = 1 << key;  //Shift
     //rowCount = 6-key;
     long time = millis();
     boolean rowSelected = false;
@@ -42,7 +43,7 @@ void keyPressed(){
       }
       digitalWrite(KP_Col2, HIGH);
       key = manualKeyRead();
-      if(key) { 
+      if(key) {
         if(key == 1){
           col = 1;
           rowShift += 64;
@@ -70,16 +71,16 @@ void keyPressed(){
         }
       }
       digitalWrite(KP_Col3, LOW);
-      
+
     }
     tft.println(col);
     //Serial.println("ColShift:10-1 / rowShift:F-A ");
     //Serial.print(colShift, BIN);  Serial.print(" "); Serial.println(rowShift, BIN);
-    
+
     shiftDespence(colShift, rowShift); //Shift col out first then row. then Enable.
     blankScreen();  //****** TEMP Clear screen
     digitalWrite(KP_Col1, HIGH);
-  } 
+  }
 }
 
 
@@ -94,7 +95,7 @@ byte manualKeyRead(){
   else if(digitalRead(KP_RowG)) return 7;
   return 0;
 }
-
+*/
 /***********************************OLD-NOT WORKING DIRECT MANIPULATION*****************************************
 void getRow(){  //timer function or return slot
   byte row = 0;
@@ -109,9 +110,9 @@ void getRow(){  //timer function or return slot
       return;
     }
     digitalWrite(KP_Col2, LOW);
-    delay(50); 
+    delay(50);
     digitalWrite(KP_Col3, HIGH);
-    
+
     byte slot2Reading = PINA;  //READ Port A (the analog ports)
     delay(50);
     slot2Reading = PINA;
@@ -120,7 +121,7 @@ void getRow(){  //timer function or return slot
       return;
     }
     digitalWrite(KP_Col2, LOW);
-    delay(50); 
+    delay(50);
   }
 }
 
@@ -134,4 +135,3 @@ byte getKey(byte data, byte range, byte increment){
 }
 
 */
-  
