@@ -1,5 +1,4 @@
 #define ver 002
-
 /*
 Possibilities:
 Add ESP32/8266 and connect:
@@ -22,12 +21,13 @@ volatile unsigned int coinCredit = 0;  //Holds the current inserted coins credit
 
 //***************Instances**************************
 MFRC522 mfrc522(RFID_CS, RFID_RST);
-File myFile;
+
 
 
 void setup()
 {
   Serial.begin(115200);
+  Serial1.begin(9600);
   Serial.print("Vending Machine, Version:");
   Serial.println(ver);
   Serial.println("Project by SkipXtian");
@@ -38,18 +38,15 @@ void setup()
   pinMode(despenceStatus, INPUT_PULLUP);
   pinMode(trayStatus, INPUT_PULLUP);
 
-  rfidInit();
+  //rfidInit();
   shiftRegInit();
 }
 
 void loop()
 {
-  if(Serial.available() > 0) {
-    byte traySelect = (1 << (Serial.read()-65)); //Converts the Row (A-F) into a binary (1-32)
-    delay(100);
-    byte slotSelect = processSlot(Serial.read());
-  }
-  detectTag();
+  handleNextion();
+  
+  //detectTag();
 
   // testing
   // if(coinCredit != 0) {
@@ -58,13 +55,13 @@ void loop()
   // }
 }
 
-byte processSlot(char inChar){
-  if (inChar >= '1' && inChar <= '9'){
-    return inChar-48;
-  } else if (inChar == '0'){
-    return 10;
-  }
-}
+//byte processSlot(char inChar){
+//  if (inChar >= '1' && inChar <= '9'){
+//    return inChar-48;
+//  } else if (inChar == '0'){
+//    return 10;
+//  }
+//}
 
 void coinInserted()
 {
