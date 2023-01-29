@@ -1,0 +1,63 @@
+//******************************* PINS******************************
+#define RFID_RST_PIN                    2
+#define RFID_SS_PIN                     5
+
+//**************************** VARIABLES ***************************
+unsigned long newTag = 0;
+
+union tagID {
+  unsigned long value;
+  byte bytes[4];
+};
+tagID recievedID;
+
+//**************************** INSTANCES ***************************
+MFRC522 mfrc522(RFID_SS_PIN, RFID_RST_PIN);
+
+//************************** MAGIC NUMBERS *************************
+#define RFID_DEBOUNCE_DURATION          4000
+
+//**************************** FUNCTIONS ***************************
+void initRFID()
+{
+
+    pinMode(RFID_SS_PIN, OUTPUT);
+    SPI.begin();           // Init SPI bus
+    mfrc522.PCD_Init();    // Init MFRC522 library.
+    // mfrc522.PCD_SetAntennaGain(rfidgain);
+    mfrc522.PCD_DumpVersionToSerial();
+}
+
+/**************************** handleRFID ***************************
+                Publishes and Card UUID to RFID_TOPIC
+*******************************************************************/
+void handleRFID()
+{
+    if (!mfrc522.PICC_IsNewCardPresent()) {
+        delay(50);
+        return;
+    }
+    // Select one of the cards
+    if (!mfrc522.PICC_ReadCardSerial()) {
+        delay(50);
+        return;
+    }
+
+    for (byte i = 0; i < mfrc522.uid.size; i++) {
+        recievedID.bytes[i] = mfrc522.uid.uidByte[i];
+    }
+
+    static unsigned long lastTag = 0;
+    static unsigned long timeNow = 0;
+    // debounces multiple reads
+    if(millis() - timeNow > RFID_DEBOUNCE_DURATION || lastTag != recievedID.value){
+        Serial.println(recievedID.value);
+        write2Nextion("home.creditText.txt=", "Checking for Orders");
+        String msgStr = String(recievedID.value);
+        char msg[20];
+        msgStr.toCharArray(msg, 20);
+        mqttClient.publish(RFID_TOPIC, 1, 0, msg);
+        lastTag = recievedID.value;
+        timeNow = millis();
+    }
+}

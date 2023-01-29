@@ -1,0 +1,240 @@
+//******************************* PINS******************************
+#define NEXTION_RX                          16
+#define NEXTION_TX                          17
+// #define NEXTION_RX                          4
+// #define NEXTION_TX                          15
+
+//**************************** VARIABLES ***************************
+
+//**************************** INSTANCES ***************************
+HardwareSerial nextionSerial(1); //Pins 16, 17
+// HardwareSerial nextionSerial(2); // Pins 4,15
+
+//************************** MAGIC NUMBERS *************************
+#define NEXTION_TIMEOUT                     400
+#define NEXTION_BAUD                        9600
+
+#define NEX_RET_CMD_FINISHED                (0x01)
+#define NEX_RET_EVENT_LAUNCHED              (0x88)
+#define NEX_RET_EVENT_UPGRADED              (0x89)
+#define NEX_RET_EVENT_TOUCH_HEAD            (0x65)
+#define NEX_RET_EVENT_POSITION_HEAD         (0x67)
+#define NEX_RET_EVENT_SLEEP_POSITION_HEAD   (0x68)
+#define NEX_RET_CURRENT_PAGE_ID_HEAD        (0x66)
+#define NEX_RET_STRING_HEAD                 (0x70)
+#define NEX_RET_NUMBER_HEAD                 (0x71)
+#define NEX_RET_INVALID_CMD                 (0x00)
+#define NEX_RET_INVALID_COMPONENT_ID        (0x02)
+#define NEX_RET_INVALID_PAGE_ID             (0x03)
+#define NEX_RET_INVALID_PICTURE_ID          (0x04)
+#define NEX_RET_INVALID_FONT_ID             (0x05)
+#define NEX_RET_INVALID_BAUD                (0x11)
+#define NEX_RET_INVALID_VARIABLE            (0x1A)
+#define NEX_RET_INVALID_OPERATION           (0x1B)
+#define NEX_RET_LONG_VARIABLE_NAME          (0x23)
+
+//**************************** FUNCTIONS ***************************
+
+/********************** recvRetCommandFinished *********************
+            Returns true if a sent command was acknowledged
+*******************************************************************/
+bool recvRetCommandFinished()
+{
+    bool ret = false;
+    uint8_t temp[4] = {0};
+
+    nextionSerial.setTimeout(NEXTION_TIMEOUT);
+    if (sizeof(temp) != nextionSerial.readBytes((char *)temp, sizeof(temp))) {
+        ret = false;
+    }
+
+    if (temp[0] == NEX_RET_CMD_FINISHED && temp[1] == 0xFF  && temp[2] == 0xFF  && temp[3] == 0xFF) {
+        ret = true;
+    }
+
+    if (ret) {
+        // Serial.println("recvRetCommandFinished ok");
+    } else {
+        Serial.print("recvRetCommandFinished err:");
+        Serial.println(temp[0], HEX);
+    }
+    return ret;
+}
+
+
+/*************************** commandTail **************************
+        Every command sent to Nextion requires this tail
+*******************************************************************/
+bool commandTail()
+{
+  nextionSerial.write(0xff);
+  nextionSerial.write(0xff);
+  nextionSerial.write(0xff);
+  return recvRetCommandFinished();
+}
+
+/************************** write2Nextion *************************
+            Overloaded functions to send data to Nextion
+*******************************************************************/
+void write2Nextion(String value)
+{
+  nextionSerial.print(value);
+  if(!commandTail()) {
+    Serial.println(value);
+  }
+}
+
+
+void write2Nextion(String targetField, String value)
+{
+  nextionSerial.print(targetField);
+  nextionSerial.write(0x22);
+  nextionSerial.print(value);
+  nextionSerial.write(0x22);
+  if(!commandTail()) {
+    Serial.print(targetField);   Serial.println(value);
+  }
+}
+
+void write2Nextion(String targetField, unsigned long value)
+{
+  nextionSerial.print(targetField);
+  nextionSerial.write(0x22);
+  nextionSerial.print(value);
+  nextionSerial.write(0x22);
+  if(!commandTail()) {
+    Serial.print(targetField);   Serial.println(value);
+  }
+}
+
+void writePrice2Nextion(String targetField, uint16_t value)
+{
+    nextionSerial.print(targetField);
+    nextionSerial.write(0x22);
+    nextionSerial.write('$');
+    nextionSerial.print(String(value/100));
+    nextionSerial.write('.');
+    nextionSerial.print(String(value%100));
+    nextionSerial.write(0x22);
+    if(!commandTail()) {
+        Serial.print(targetField);   Serial.println(value);
+    }
+}
+
+/*************************** initNextion **************************
+Ensure the Nextion acknowledges if a command was Successful or not
+*******************************************************************/
+void initNextion()
+{
+    nextionSerial.begin(NEXTION_BAUD, SERIAL_8N1, NEXTION_RX, NEXTION_TX);
+    nextionSerial.print("bkcmd=3"); //0 off, 1 return success, 2 return fail, 3 always return
+    commandTail();
+}
+
+/*************************** handleNextion **************************
+            Handles the Serial data recieved from the Nextion
+*******************************************************************/
+void handleNextion()
+{
+    if(nextionSerial.available() > 0) {
+        char itemLocation[3] = { 0 };
+        itemLocation[0] = nextionSerial.read();
+        Serial.print(itemLocation[0]);
+        /*    if(inChar == 'M') { //Manually Add Credit to the machine
+          coinCredit+=(nextionSerial.parseInt()*10);
+          return;
+        } else if(inChar == 'T') { //Manually dispense product
+           inChar = nextionSerial.read();
+        }*/
+        if(itemLocation[0] >= 'A' && itemLocation[0] <= 'F'){
+            unsigned long timeNow = millis();
+            while(millis() - timeNow < 5000){
+                if(nextionSerial.available()){
+                    itemLocation[1] = nextionSerial.read();
+                    Serial.println(itemLocation[1]);
+                    break;
+                }
+            }
+            if(itemLocation[1] >= '0' && itemLocation[1] <= '9'){
+                // POSSIBLE MOVE THIS ONTO THE NEXTION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // write2Nextion("info.qrCode.txt=", "https://gctechspace.org/shop/vending/" + String(itemLocation[0])+ String(itemLocation[1]));
+
+                byte itemArrayIndex = getItemIndex(itemLocation[0], itemLocation[1]);
+
+
+                Serial.print("itemArrayIndex:");
+                Serial.println(itemArrayIndex);
+                Serial.println(item[itemArrayIndex].stockLeft);
+
+                if(item[itemArrayIndex].stockLeft == 0) {
+                //***** Publish Item Location if not in array and recieves name, price,stocklevel,reserved,VERY short description on PRODUCT_TOPIC
+                    mqttClient.publish(PRODUCT_INFO_TOPIC, 1, 0, itemLocation);
+                } else {
+                    Serial.println("Stored Locally");
+                    Serial.println(item[itemArrayIndex].itemName);
+                    Serial.println(item[itemArrayIndex].stockLeft);
+                    Serial.println(item[itemArrayIndex].price);
+                    Serial.println(item[itemArrayIndex].description);
+
+                    selectedItem.itemRow = itemLocation[0];
+                    selectedItem.itemColumn = itemLocation[1];
+                    selectedItem.price = item[itemArrayIndex].price;
+                    // selectedItem.timeSelected = millis();
+
+                    write2Nextion("info.itemNameText.txt=", item[itemArrayIndex].itemName);
+                    write2Nextion("info.infoText.txt=",item[itemArrayIndex].description);
+                    writePrice2Nextion("info.priceText.txt=",item[itemArrayIndex].price);
+                }
+
+            }
+        } else if(itemLocation[0] == 'H'){
+            selectedItem.price = 0;
+			selectedItem.itemRow = NO_ITEM_SELECTED;
+        } else if(itemLocation[0] == 'R'){  //redeem code
+            char redeemCode[7];
+            byte counter = 0;
+            unsigned long startTime = millis();
+            do {
+                if(nextionSerial.available()) {
+                    delay(1);
+                    redeemCode[counter] = nextionSerial.read();
+                    if(redeemCode[counter] == '|') break;
+                    counter++;
+                }
+            } while(counter < 7 && millis() - startTime < 20000);
+
+            redeemCode[6] = '\0';
+            Serial.println(redeemCode);
+            if(counter == 7){
+                mqttClient.publish(REDEEM_TOPIC, 1, 0, redeemCode);
+            }
+        } else if(itemLocation[0] == 'M'){  //redeem code
+            moneyInserted += nextionSerial.read()*100;
+            while(nextionSerial.available()){ //clears the tailing 3x '0' from Nextion
+                nextionSerial.read();
+            }
+            // logEvent("[INFO]: Maintance, Money added");
+            writePrice2Nextion("home.creditText.txt=", moneyInserted);
+        } else if(itemLocation[0] == 'T'){  //redeem code
+            maintance = true;
+            char row = nextionSerial.read();
+            char col = nextionSerial.read();
+            dispenceSerial.print('<');
+            dispenceSerial.print(row);
+			dispenceSerial.print(col);
+            dispenceSerial.print(row+col);
+            dispenceSerial.print('>');
+            logEvent("[INFO]: Maintance, Testing Dispence");
+        }
+        //for TESTING
+        /*    if(inChar == 'M'){
+          //change page on Nextion
+        }*/
+        // if(itemLocation[0] == 'H' && client.state() == MQTT_CONNECTED) {
+        //
+        // }
+    }
+    while (nextionSerial.available() > 0) {  //Flush the incoming data
+        nextionSerial.read();
+    }
+}

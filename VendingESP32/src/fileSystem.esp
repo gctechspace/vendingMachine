@@ -1,0 +1,207 @@
+
+//****************** SPIFFS CONFIG & LOGGING ******************
+//logEvent("INFO", "sys", "System setup completed, running", "");
+/******************* Log event ******************
+INPUT: String with format "[TYPE] system: event"
+ie "[INFO]: wifi, obtained IP" INFO/WARN/STAT/ERR
+*/
+void logEvent(String msg)
+{
+    Serial.println(msg);
+    if(mqttClient.connected()){
+        mqttClient.publish(LOG_TOPIC, 1, 0, msg.c_str());
+    }
+    // File eventlog = SPIFFS.open("/eventlog.json", "a");
+    // eventlog.print(timeClient.getEpochTime());
+    // eventlog.println(msg);
+  	// eventlog.close();
+}
+
+void readStockFile()
+{
+    File stockFile = SPIFFS.open("/stock.txt", "r");
+
+    if (!stockFile){
+        Serial.println(F("Failed to open stock.txt"));
+    } else {
+        Serial.println(F("Opened stock.txt"));
+        Serial.print(F("CONFIG FILE CONTENTS----------------------"));
+        Serial.println();
+
+        stockFile.readBytes((char *)item, sizeof(stockStruct) * ITEM_COUNT);
+        stockFile.close();
+    }
+}
+
+void writeStockFile()
+{
+    File stockFile = SPIFFS.open("/stock.txt", "r");
+
+    if (!stockFile){
+        Serial.println(F("Failed to open stock.txt"));
+    } else {
+        Serial.println(F("Opened stock.txt"));
+        Serial.print(F("CONFIG FILE CONTENTS----------------------"));
+        Serial.println();
+
+        unsigned char * data = reinterpret_cast<unsigned char*>(item); // use unsigned char, as uint8_t is not guarunteed to be same width as char...
+        stockFile.write(data, sizeof(stockStruct) * ITEM_COUNT);
+        stockFile.close();
+    }
+}
+
+// void writeSingleItem(byte itemLocation)
+// {
+//     File stockFile = SPIFFS.open("/stock.txt", "r");
+//
+//     if (!stockFile){
+//         Serial.println(F("Failed to open stock.txt"));
+//     } else {
+//         unsigned char * data = reinterpret_cast<unsigned char*>(item); // use unsigned char, as uint8_t is not guarunteed to be same width as char...
+//         stockFile.seek(sizeof(stockStruct) * itemLocation, SeekSet);
+//         stockFile.write(data[sizeof(stockStruct) * itemLocation], sizeof(stockStruct));
+//     }
+//     stockFile.close();
+// }
+
+bool initSpiffs()
+{
+    if (!SPIFFS.begin(true)) {  //Format SPIFF if not already
+        Serial.println("[ERR]: spiffs, unable to mount");
+        return false;
+    }
+    return true;
+}
+
+
+/***************************************************************************
+ * Load configuration data from the SPIFF file, return 0 if OK
+ * SPIFFS open function needs path and mode:
+ * mode = "r", "w", "a", "r+", "w+", "a+" (text file) or "rb", "wb", "ab", "rb+", "wb+", "ab+" (binary)
+ * where r = read, w = write, a = append
+ * + means file is open for update (read and write)
+ * b means the file os open for binary operations
+ *
+ * Returns 0 if OK else:
+ * -1 = No SPIFFS file system
+ * -2 = File does not exist
+ * -3 = File too short
+ * -4 = Checksum does not compare
+ ***************************************************************************/
+// int LoadConfigFromFile(ESPConfiguration *Conf, char * configfile)
+// {
+// 	FSInfo fs_info;
+// 	File F;
+// 	int retcode = 0;
+// 	unsigned int readSize;
+// 	unsigned int chk;
+//
+// 	ESPConfiguration Cnf;
+//
+// 	SPIFFS.begin();
+//
+// 	if (!SPIFFS.info(fs_info))
+// 		retcode = -1;	//File system not initialized?
+// 	else
+// 	{
+// 		if (!SPIFFS.exists(configfile))
+// 			retcode = -2;	//Could not find config file
+// 		else
+// 		{
+// 			F = SPIFFS.open(configfile, "rb");
+// 			F.setTimeout(0);
+// 			readSize = F.readBytes((char*) &Cnf, sizeof(Cnf)); //cast changed from byte*
+// 			if (!(readSize == sizeof(Cnf)))
+// 				retcode = -3;
+// 			else
+// 			{
+// 				chk = Cnf.checksum;
+// 				Cnf.checksum = 0;
+// 				if (CheckSum(&Cnf, sizeof(Cnf)) == chk) //Validated checksum
+// 				{
+// 					Cnf.checksum = chk;
+// 					*Conf = Cnf;
+// 				}
+// 				else
+// 					retcode = -4;
+// 			}
+// 			F.close();
+// 		}
+// 	}
+// 	SPIFFS.end();
+//
+// 	return retcode;
+// }
+// File stockFile = SPIFFS.open("/stock.txt", "r");
+//
+//     if (!stockFile){
+//         Serial.println(F("Failed to open stock.txt"));
+//     } else {
+//                   Serial.println(F("Opened stock.txt"));
+//                   Serial.print(F("CONFIG FILE CONTENTS----------------------"));
+//                   Serial.println();
+//
+//                   uint8_t light[sizeof(stockStruct)];
+//                   size_t size = stockFile.size();
+//                   uint8_t counter = 0;
+//
+//             for(int i=0; i<size; i+=sizeof(stockStruct)){
+//
+//                  for(int j=0;j<sizeof(stockStruct);j++){
+//                    light[j] = stockFile.read();
+//                  }
+//
+//               stockStruct *thelight = (stockStruct *)light;
+//              stockStruct *currentlight = &Lights[counter];
+//              memcpy (currentlight , thelight , sizeof(stockStruct));
+//
+//               Serial.printf( "Saved Light:%3u, %15s, State = %u, HSB(%5u,%3u,%3u) \n",
+//                counter, thelight->Name, thelight->State, thelight->Hue, thelight->Sat, thelight->Bri);
+//
+//             counter++;
+//             }
+//
+//               stockFile.close();
+//            }
+
+/*********************************************************************
+ * Write configuration into a SPIFF file at address 0
+ * SPIFFS open function needs path and mode:
+ * mode = "r", "w", "a", "r+", "w+", "a+" (text file) or "rb", "wb", "ab", "rb+", "wb+", "ab+" (binary)
+ * where r = read, w = write, a = append
+ * + means file is open for update (read and write)
+ * b means the file os open for binary operations
+ *
+ * Returns 0 if OK else:
+ * -1 = No SPIFFS file system
+ * -3 = All bytes could not be written
+ *********************************************************************/
+// int WriteConfigToFile(ESPConfiguration *Conf, char* configfile)
+// {
+// 	ESPConfiguration Cnf;  //Temp struct
+// 	FSInfo fs_info;
+// 	File F;
+// 	unsigned int writeSize;
+// 	int retcode = 0;
+//
+// 	Cnf = *Conf;
+// 	UpdateChecksum(&Cnf);  //Set checksum member to sum of all other bytes
+//
+// 	SPIFFS.begin();
+//
+// 	if (!SPIFFS.info(fs_info))
+// 		retcode = -1;	//File system not initialized?
+// 	else
+// 	{
+// 		F = SPIFFS.open(configfile, "wb");
+// 		writeSize = F.write((byte*) &Cnf, sizeof(Cnf));
+// 		if (!(writeSize == sizeof(Cnf)))
+// 			retcode = -3;
+// 		F.close();
+// 	}
+// 	SPIFFS.end();
+//
+// 	return retcode;
+// }
+// unsigned char * data = reinterpret_cast<unsigned char*>(item); // use unsigned char, as uint8_t is not guarunteed to be same width as char...
+// size_t bytes = configFile.write(data, sizeof(item) * ITEM_COUNT ); // C++ way

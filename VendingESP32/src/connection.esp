@@ -1,0 +1,342 @@
+//***************************** MQTT MESSAGE RECIEVED *****************************
+void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t length, size_t index, size_t total)
+{
+    if(strcmp(topic, VENDING_TOPIC) == 0){
+      for (int i = 0; i < length; i++) {
+        attemptDispence = true;
+        attemptDispenceTime = millis();
+        write2Nextion("home.creditText.txt=", "Dispencing...");
+        Serial.print((char)payload[i]);
+        dispenceSerial.print((char)payload[i]);
+      }
+      Serial.println();
+    } else if(strcmp(topic, PRODUCT_TOPIC) == 0){
+        //If there is no product on the website then just return a "|"
+        //If there is a product then we are expecting "itemLocation[2]|itemName[15]|price[5]|stockleft[1]|description[25]" [max amount of bytes]
+        //A1|dog|200|5|mans best friend
+        if((char)payload[0] != '|') {
+            int i = 0;
+            byte j = 0;
+            char itemLocationChar[2];
+            for (i; (char)payload[i] != '|'; i++) {
+                itemLocationChar[j++] = (char)payload[i];
+                Serial.print((char)payload[i]);
+            }
+            // itemLocationChar[j] = '\0';
+            byte itemArrayIndex = getItemIndex(itemLocationChar[0], itemLocationChar[1]);
+            // byte itemArrayIndex = atoi(itemArrayIndexChar);
+            Serial.print((char)payload[i++]);
+            j = 0;
+            for (i; (char)payload[i] != '|'; i++) {
+                item[itemArrayIndex].itemName[j++] = (char)payload[i];
+                Serial.print((char)payload[i]);
+            }
+            item[itemArrayIndex].itemName[j] = '\0';
+            Serial.print((char)payload[i++]);
+            char tempArray[6];
+            j = 0;
+            for (i; (char)payload[i] != '|'; i++) {
+                tempArray[j++] = (char)payload[i];
+                Serial.print((char)payload[i]);
+            }
+            tempArray[j] = '\0';
+            item[itemArrayIndex].price = atoi(tempArray);
+            Serial.print((char)payload[i++]);
+            j = 0;
+            tempArray[0] = '\0';
+            for (i; (char)payload[i] != '|'; i++) {
+                tempArray[j++] = (char)payload[i];
+                Serial.print((char)payload[i]);
+            }
+            tempArray[j] = '\0';
+            item[itemArrayIndex].stockLeft = atoi(tempArray);
+            Serial.print((char)payload[i++]);
+            j = 0;
+            for (i; i < length; i++) {
+                item[itemArrayIndex].description[j++] = (char)payload[i];
+                Serial.print((char)payload[i]);
+            }
+            item[itemArrayIndex].description[j] = '\0';
+            
+            write2Nextion("info.itemNameText.txt=", item[itemArrayIndex].itemName);
+            write2Nextion("info.infoText.txt=",item[itemArrayIndex].description);
+            writePrice2Nextion("info.priceText.txt=",item[itemArrayIndex].price);
+        }
+    }
+    //Serial.println("Publish received.");
+    //Serial.print("  topic: ");
+    //Serial.println(topic);
+    //Serial.print("  qos: ");
+    //Serial.println(properties.qos);
+    //Serial.print("  dup: ");
+    //Serial.println(properties.dup);
+    //Serial.print("  retain: ");
+    //Serial.println(properties.retain);
+    //Serial.print("  len: ");
+    //Serial.println(len);
+    //Serial.print("  index: ");
+    //Serial.println(index);
+    //Serial.print("  total: ");
+    //Serial.println(total);
+}
+
+
+
+
+//****************** WATCHDOG VARIABLES ******************
+bool watchdog_active = false;
+#define WDT_TIMEOUT 3000  //time in ms to trigger the watchdog
+
+//****************** WATCHDOG INSTANCES ******************
+hw_timer_t *watchDog_Timer = NULL;
+
+//*************** WDT TIMEOUT CALLBACK *******************
+void IRAM_ATTR resetModule()
+{
+    ets_printf("reboot\n");
+    esp_restart();
+}
+
+void enableWDT()
+{
+    if (watchdog_active) return;
+    watchDog_Timer = timerBegin(0, 80, true);                   //timer 0, div 80Mhz
+    timerAttachInterrupt(watchDog_Timer, &resetModule, true);   //attach callback
+    timerAlarmWrite(watchDog_Timer, WDT_TIMEOUT * 1000, false); //set time in us
+    timerAlarmEnable(watchDog_Timer);                           //enable interrupt
+    watchdog_active = true;
+}
+
+void disableWDT()
+{
+    if (!watchdog_active) return;
+    timerAlarmDisable(watchDog_Timer);
+    timerEnd(watchDog_Timer);
+    watchDog_Timer = NULL;
+    watchdog_active = false;
+}
+
+void feedWDT()
+{
+    if (watchdog_active) {
+        timerWrite(watchDog_Timer, 0); //reset timer (feed watchdog)
+    }
+}
+
+//******************************* MQTT & WIFI **********************************
+void connectToWifi()
+{
+  //Serial.println("Connecting to Wi-Fi...");
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+}
+
+void connectToMqtt()
+{
+  //Serial.println("Connecting to MQTT...");
+    mqttClient.connect();
+}
+
+void WiFiEvent(WiFiEvent_t event)
+{
+    Serial.printf("[WiFi-event] event: %d\n", event);
+    switch(event) {
+        case SYSTEM_EVENT_STA_GOT_IP:
+            logEvent("[INFO]: wifi, obtained IP");
+            Serial.println("WiFi connected");
+            Serial.println("IP address: ");
+            Serial.println(WiFi.localIP());
+            connectToMqtt();
+            initOTA();
+            timeClient.begin();
+            nextionSerial.print("home.pic=5");
+            commandTail();
+            // delay(NEXTION_COMMAND_DELAY);
+            write2Nextion("home.creditText.txt=", "ONLINE");
+            break;
+        case SYSTEM_EVENT_STA_DISCONNECTED:
+            logEvent("[WARN]: wifi, disconnected");
+            xTimerStop(mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
+		    xTimerStart(wifiReconnectTimer, 0);
+            nextionSerial.print("home.pic=10");
+            commandTail();
+            // delay(NEXTION_COMMAND_DELAY);
+            write2Nextion("home.creditText.txt=", "OFFLINE");
+            break;
+    }
+}
+
+void onMqttConnect(bool sessionPresent)
+{
+
+    logEvent("[INFO]: mqtt, Connected as " MQTT_CLIENT_NAME);
+
+
+    // Publishes an Alive message of the device name and IP address
+    IPAddress myIP = WiFi.localIP();
+    String ipString = String(myIP[0]) + "." + String(myIP[1]) + "." + String(myIP[2]) + "." + String(myIP[3]) + WiFi.RSSI();
+    // char aliveMsg[33];
+    // aliveMsgStr.toCharArray(aliveMsg, 33);
+    logEvent("[INFO]: Wifi Connected IP: " + ipString);
+
+    mqttClient.publish(STATE_TOPIC, 1, 0, "1");
+
+    mqttClient.subscribe(VENDING_TOPIC, 1);
+    logEvent("[INFO]: mqtt, Subscribed: " VENDING_TOPIC);
+    mqttClient.subscribe(PRODUCT_TOPIC, 1);
+    logEvent("[INFO]: mqtt, Subscribed: " PRODUCT_TOPIC);
+    // mqttClient.subscribe(ORDER_TOPIC, 1);
+    // logEvent("[INFO]: mqtt, Subscribed: " ORDER_TOPIC);
+    mqttClient.subscribe(DISPLAY_TOPIC, 1);
+    logEvent("[INFO]: mqtt, Subscribed: " DISPLAY_TOPIC);
+
+    write2Nextion("home.creditText.txt=", ipString);
+
+}
+
+void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
+{
+    static int8_t lastDisconnectReason = int(AsyncMqttClientDisconnectReason::TCP_DISCONNECTED);
+    if (lastDisconnectReason != int(reason)){
+        write2Nextion("home.creditText.txt=", "MQTT Error");
+        switch (reason) {
+            case AsyncMqttClientDisconnectReason::TCP_DISCONNECTED:
+                logEvent("[WARN]: mqtt, TCP disconnect");
+                break;
+            case AsyncMqttClientDisconnectReason::MQTT_UNACCEPTABLE_PROTOCOL_VERSION:
+                 logEvent("[WARN]: mqtt, Bad Protocol");
+                 break;
+            case AsyncMqttClientDisconnectReason::MQTT_IDENTIFIER_REJECTED:
+                logEvent("[WARN]: mqtt, Bad Client ID");
+                break;
+            case AsyncMqttClientDisconnectReason::MQTT_SERVER_UNAVAILABLE:
+                logEvent("[WARN]: mqtt, unavailable");
+                break;
+            case AsyncMqttClientDisconnectReason::MQTT_MALFORMED_CREDENTIALS:
+                logEvent("[WARN]: mqtt, Bad Credentials");
+                break;
+            case AsyncMqttClientDisconnectReason::MQTT_NOT_AUTHORIZED:
+                logEvent("[WARN]: mqtt, Unauthorized");
+                break;
+            case AsyncMqttClientDisconnectReason::TLS_BAD_FINGERPRINT:
+                logEvent("[ERR]: mqtt, Bad Fingerprint");
+                break;
+        }
+        lastDisconnectReason = int(reason);
+    }
+    if (WiFi.isConnected()) {
+      xTimerStart(mqttReconnectTimer, 0);
+    }
+}
+
+// void onMqttSubscribe(uint16_t packetId, uint8_t qos)
+// {
+  //   Serial.println("Subscribe acknowledged.");
+  //   Serial.print("  packetId: ");
+  //   Serial.println(packetId);
+  //   Serial.print("  qos: ");
+  //   Serial.println(qos);
+// }
+//
+// void onMqttUnsubscribe(uint16_t packetId)
+// {
+  //   Serial.println("Unsubscribe acknowledged.");
+  //   Serial.print("  packetId: ");
+  //   Serial.println(packetId);
+// }
+
+
+
+// void onMqttPublish(uint16_t packetId)
+// {
+    //Serial.println("Publish acknowledged.");
+    //Serial.print("  packetId: ");
+    //Serial.println(packetId);
+// }
+
+void initWifi()
+{
+    mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(2000), pdFALSE, (void*)0, reinterpret_cast<TimerCallbackFunction_t>(connectToMqtt));
+    wifiReconnectTimer = xTimerCreate("wifiTimer", pdMS_TO_TICKS(5000), pdFALSE, (void*)0, reinterpret_cast<TimerCallbackFunction_t>(connectToWifi));
+
+    WiFi.onEvent(WiFiEvent);
+
+    mqttClient.onConnect(onMqttConnect);
+    mqttClient.onDisconnect(onMqttDisconnect);
+    // mqttClient.onSubscribe(onMqttSubscribe);
+    // mqttClient.onUnsubscribe(onMqttUnsubscribe);
+    mqttClient.onMessage(onMqttMessage);
+    // mqttClient.onPublish(onMqttPublish);
+    mqttClient.setClientId(MQTT_CLIENT_NAME);
+    mqttClient.setCredentials(MQTT_USER, MQTT_PASS);
+    mqttClient.setWill(STATE_TOPIC, 1, 1, "0", 0); //const char* topic, uint8_t qos, bool retain, const char* payload = nullptr, size_t length = 0
+    mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
+
+    connectToWifi();
+}
+
+
+void initOTA()
+{
+    // Port defaults to 3232
+    // ArduinoOTA.setPort(3232);
+
+    // Hostname defaults to esp3232-[MAC]
+    // ArduinoOTA.setHostname("myesp32");
+
+    // No authentication by default
+    ArduinoOTA.setPassword(OTA_PASSWORD);
+
+    // Password can be set with it's md5 value as well
+    // MD5(admin) = 21232f297a57a5a743894a0e4a801fc3
+    // ArduinoOTA.setPasswordHash("21232f297a57a5a743894a0e4a801fc3");
+
+    ArduinoOTA
+    .onStart([]() {
+        String type;
+        if (ArduinoOTA.getCommand() == U_FLASH)
+          type = "sketch";
+        else // U_SPIFFS
+          type = "filesystem";
+
+        // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+        Serial.println("Start updating " + type);
+    })
+    .onEnd([]() {
+        logEvent("[INFO]: ota, Successful");
+        Serial.println("\nEnd");
+    })
+    .onProgress([](unsigned int progress, unsigned int total) {
+        Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    })
+    .onError([](ota_error_t error) {
+        switch (error) {
+            case OTA_AUTH_ERROR:
+                logEvent("[ERR]: ota, Auth Failed");
+                break;
+            case OTA_BEGIN_ERROR:
+                 logEvent("[ERR]: ota, Begin Failed");
+                 break;
+             case OTA_CONNECT_ERROR:
+                logEvent("[ERR]: ota, Connect Failed");
+                break;
+            case OTA_RECEIVE_ERROR:
+                logEvent("[ERR]: ota, Receive Failed");
+                break;
+            case OTA_END_ERROR:
+                logEvent("[ERR]: ota, End Failed");
+                break;
+        }
+    });
+
+    ArduinoOTA.begin();
+}
+
+
+void houseKeeping()
+{
+    feedWDT();
+    if(WiFi.status() == WL_CONNECTED){
+        ArduinoOTA.handle();
+        timeClient.update();
+    }
+}

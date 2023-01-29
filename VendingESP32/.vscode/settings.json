@@ -1,0 +1,9 @@
+{
+    "terminal.integrated.env.linux": {
+        "PATH": "/home/skip/.platformio/penv/bin:/home/skip/.platformio/penv:/home/skip/.nvm/versions/node/v8.3.0/bin:/home/skip/local/esp-open-sdk/xtensa-lx106-elf/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/home/skip/esp/xtensa-esp32-elf/bin:/home/skip/.platformio/packages/toolchain-gccarmnoneeabi/bin/",
+        "PLATFORMIO_CALLER": "vscode"
+    },
+    "files.associations": {
+        "*.esp": "cpp"
+    }
+}
