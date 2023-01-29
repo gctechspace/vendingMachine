@@ -1,5 +1,4 @@
 #define ver 002
-
 /*
 Possibilities:
 Add ESP32/8266 and connect:
@@ -14,6 +13,9 @@ Leaving VendingBoard to Control Dispence
 #include "pinDef_v0_1.h"
 
 volatile unsigned int coinCredit = 0;  //Holds the current inserted coins credit
+volatile unsigned long coinInsertedTime = 0;
+unsigned int moneyInserted = 0;
+#define coinPulseDelay 150
 
 //***************Libraries***********************
 
@@ -22,52 +24,46 @@ volatile unsigned int coinCredit = 0;  //Holds the current inserted coins credit
 
 //***************Instances**************************
 MFRC522 mfrc522(RFID_CS, RFID_RST);
-File myFile;
+
 
 
 void setup()
 {
   Serial.begin(115200);
+  Serial1.begin(9600);
   Serial.print("Vending Machine, Version:");
   Serial.println(ver);
-  Serial.println("Project by SkipXtian");
-  Serial.println("MickMorri,JamesSapsford,Spidie");
+  Serial.println("Project by SkipXtian, DTBaker");
 
-  attachInterrupt(coinIn, coinInserted, RISING);   //If coinInt goes HIGH (a Pulse), call the coinInserted function
+//  attachInterrupt(coinIn, coinInsertedISR, RISING);   //If coinInt goes HIGH (a Pulse), call the coinInserted function
 
   pinMode(despenceStatus, INPUT_PULLUP);
   pinMode(trayStatus, INPUT_PULLUP);
 
-  rfidInit();
+  //rfidInit();
   shiftRegInit();
 }
 
 void loop()
 {
-  if(Serial.available() > 0) {
-    byte traySelect = (1 << (Serial.read()-65)); //Converts the Row (A-F) into a binary (1-32)
-    delay(100);
-    byte slotSelect = processSlot(Serial.read());
-  }
-  detectTag();
+//  handleNextion();
+  handleDispence();
+  //detectTag();
 
-  // testing
-  // if(coinCredit != 0) {
-  //   Serial.println(coinCredit);
-  //   coinCredit = 0;
-  // }
+
+//   if(coinCredit != 0 && millis()-coinInsertedTime>coinPulseDelay) {
+//     Serial.println(coinCredit);
+//     moneyInserted += coinCredit;
+//     writeCredit2Nextion("home.creditText.txt=", moneyInserted);
+//     coinCredit = 0;
+//   }
 }
 
-byte processSlot(char inChar){
-  if (inChar >= '1' && inChar <= '9'){
-    return inChar-48;
-  } else if (inChar == '0'){
-    return 10;
-  }
-}
 
-void coinInserted()
+
+void coinInsertedISR()
 {
 //The function that is called every time it receives a pulse
+  coinInsertedTime = millis();
   coinCredit += 50;
 }  //The coin selector is set to pulse once for every 50cents
