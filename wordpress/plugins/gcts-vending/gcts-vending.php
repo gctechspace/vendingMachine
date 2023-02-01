@@ -55,6 +55,7 @@ class GctsVending {
 					$this_item_id = $order_item->get_id();
 					if($this_item_id == $item_id){
 						$valid_item_id = $this_item_id;
+						$valid_order_item = $order_item;
 						$valid_product      = $order_item->get_product();
 					}
 				}

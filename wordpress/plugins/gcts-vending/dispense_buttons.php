@@ -11,10 +11,21 @@
 foreach($order_items as $order_item){
 	$item_id = $order_item->get_id();
 	$product      = $order_item->get_product();
+	$quantity_ordered = $order_item->get_quantity();
+
+	$dispensed_count = (int)$order_item->get_meta('dispensed_count');
+	$dispenseable = $dispensed_count < $quantity_ordered;
 	?>
 	<div style="padding: 10px; margin: 10px; border: 1px solid #ccc">
-		Item: <?php echo $product->get_name();?> in location <?php echo $product->get_sku(); ?>. <br/>
-		<a href="<?php echo $this->get_dispense_url($order_id, $item_id);?>" target="_blank">Dispense me</a>
+		<strong>
+			<?php echo $quantity_ordered;?> x <?php echo $product->get_name();?>
+		</strong>
+		 in location <?php echo $product->get_sku(); ?>. <br/>
+		<?php if($dispenseable){ ?>
+			<a href="<?php echo $this->get_dispense_url($order_id, $item_id);?>" target="_blank">Click here to dispense this item</a>
+		<?php }else{ ?>
+			(Thank you, this item has already been dispensed)
+		<?php } ?>
 	</div>
 	<?php
 }
