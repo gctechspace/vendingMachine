@@ -14,6 +14,19 @@ class GctsVending {
 	public function init() {
 		// This is the shortcode we will put on the /dispense/ page, allowing us to render dispense buttons and stuff from the email link.
 		add_shortcode( 'gcts_vending_dispense_buttons', array( $this, 'gcts_vending_dispense_buttons' ) );
+		add_filter( 'woocommerce_checkout_fields',  array( $this, 'remove_checkout_fields' ) );
+	}
+
+	public function remove_checkout_fields( $fields ) {
+		unset( $fields['billing']['billing_company'] );
+		unset( $fields['billing']['billing_city'] );
+		unset( $fields['billing']['billing_postcode'] );
+//		unset( $fields['billing']['billing_country'] );
+		unset( $fields['billing']['billing_state'] );
+		unset( $fields['billing']['billing_address_1'] );
+		unset( $fields['billing']['billing_address_2'] );
+		unset( $fields['billing']['billing_phone'] );
+		return $fields;
 	}
 
 	/**
