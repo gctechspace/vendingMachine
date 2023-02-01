@@ -72,6 +72,23 @@ class GctsVending {
 		return ob_get_clean();
 	}
 
+	public function maybe_flag_order_as_complete($order) {
+		$has_dispensed_everything = true;
+		$order_items = $order->get_items();
+		foreach($order_items as $order_item){
+			$quantity_ordered = $order_item->get_quantity();
+			$dispensed_count = (int)$order_item->get_meta('dispensed_count');
+			$dispenseable = $dispensed_count < $quantity_ordered;
+			if($dispenseable){
+				$has_dispensed_everything = false;
+			}
+		}
+		if($has_dispensed_everything){
+			// flag our order as completed! yay
+			$order->update_status('completed');
+		}
+	}
+
 	/**
 	 * Generate our secure URL for our order confirmation email.
 	 * Clicking this link will show the user their purchased products and allow them to be dispensed.

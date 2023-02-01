@@ -36,5 +36,8 @@ if(!$dispenseable){
 		Your product has been dispensed.
 	</p>
 
-<?php
+	<?php
 }
+
+// And we can now chekc if our order should be updated as complete.
+$this->maybe_flag_order_as_complete($order);

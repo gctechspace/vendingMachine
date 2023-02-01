@@ -13,6 +13,9 @@ foreach($order_items as $order_item){
 	$product      = $order_item->get_product();
 	$quantity_ordered = $order_item->get_quantity();
 
+//	$order_item->update_meta_data('dispensed_count', 0);
+//	$order_item->save_meta_data();
+
 	$dispensed_count = (int)$order_item->get_meta('dispensed_count');
 	$dispenseable = $dispensed_count < $quantity_ordered;
 	?>
