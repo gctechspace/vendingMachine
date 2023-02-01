@@ -39,7 +39,13 @@ defined( 'ABSPATH' ) || exit;
 
 	<?php else : ?>
 
-		<p class="woocommerce-notice woocommerce-notice--success woocommerce-thankyou-order-received"><?php echo apply_filters( 'woocommerce_thankyou_order_received_text', esc_html__( 'Thank you. Your order has been received.', 'woocommerce' ), $order ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p>
+		<p class="woocommerce-notice woocommerce-notice--success woocommerce-thankyou-order-received">
+			Thank you, your order has been received.
+		</p>
+		<p class="woocommerce-notice woocommerce-notice--success woocommerce-thankyou-order-received">
+			Please check your email and head on over to the vending machine. Once you are at the vending machine follow the instructions in your email.
+		</p>
+		<p>&nbsp;</p>
 
 		<ul class="woocommerce-order-overview woocommerce-thankyou-order-details order_details">
 
