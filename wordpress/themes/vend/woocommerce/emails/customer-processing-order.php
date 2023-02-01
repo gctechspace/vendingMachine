@@ -30,7 +30,27 @@ do_action( 'woocommerce_email_header', $email_heading, $email ); ?>
 
 <p>Please head on down to the vending machine at TechSpace, and once you are there press the button below:</p>
 
-<a href="<?php echo GctsVending::get_instance()->collect_url( $order->get_id() );?>">Collect From Vending Machine</a>
+	<table width="100%" cellspacing="0" cellpadding="0">
+		<tr>
+			<td>
+				<table cellspacing="0" cellpadding="0">
+					<tr>
+						<td style="border-radius: 2px;" bgcolor="#ED2939">
+							<a href="<?php echo GctsVending::get_instance()->collect_url( $order->get_id() );?>" target="_blank" style="padding: 8px 12px; border: 1px solid #ED2939;border-radius: 2px;font-family: Helvetica, Arial, sans-serif;font-size: 14px; color: #ffffff;text-decoration: none;font-weight:bold;display: inline-block;">
+								Collect Items From Vending Machine
+							</a>
+						</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+	</table>
+
+<p><small>Or click this link if the above button does not work: <?php echo GctsVending::get_instance()->collect_url( $order->get_id() );?></small></p>
+
+<p>&nbsp;</p>
+<p>For reference, your order is below:</p>
+<p>&nbsp;</p>
 
 <?php
 
